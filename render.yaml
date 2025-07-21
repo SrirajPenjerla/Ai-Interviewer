@@ -31,7 +31,7 @@ services:
     autoDeploy: true
 
 databases:
-  - name: ai-interviewer-db
+  - name: ai_interviewer_4kbv_user
     plan: free
     databaseName: ai_interviewer_4kbv
     user: postgres
