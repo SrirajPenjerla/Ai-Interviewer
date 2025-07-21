@@ -7,7 +7,10 @@
     "axios": "^1.10.0",
     "react-dropzone": "^14.3.8",
     "react-pdf": "^10.0.1",
-    "socket.io-client": "^4.8.1"
+    "socket.io-client": "^4.8.1",
+    "next": "15.4.2",
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
   },
   "scripts": {
     "dev": "next dev",

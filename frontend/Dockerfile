@@ -2,9 +2,14 @@
 FROM node:20.16.0-alpine
 
 WORKDIR /app
-COPY . .
-RUN npm install && npm run build 
 
+COPY package.json package-lock.json* ./
+RUN npm install
+
+COPY . .
+
+RUN npm run build
 
 EXPOSE 3000
-CMD ["npm", "start"] 
+
+CMD ["npm", "start"]
