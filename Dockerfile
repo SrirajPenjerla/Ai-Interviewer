@@ -9,7 +9,7 @@ RUN npm install
 
 # Copy the rest of the frontend code and build
 COPY frontend/ ./
-RUN npm run build
+RUN npm run build && npm run export
 
 
 # ========= Stage 2: Build backend =========
