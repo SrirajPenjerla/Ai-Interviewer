@@ -33,5 +33,5 @@ services:
 databases:
   - name: ai-interviewer-db
     plan: free
-    databaseName: ai_interviewer
+    databaseName: ai_interviewer_4kbv
     user: postgres
