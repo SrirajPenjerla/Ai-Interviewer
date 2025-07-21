@@ -26,7 +26,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ ./backend/
 
 # Copy frontend build into backend directory
-COPY --from=frontend-build /app/frontend/build ./backend/frontend_build
+COPY --from=frontend-build /app/frontend/out ./backend/frontend_build
 
 # Set working directory to backend to run server
 WORKDIR /app/backend
