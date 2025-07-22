@@ -95,13 +95,12 @@ const InterviewPage = () => {
     }
   };
 
-  // ✅ FIXED: Control microphone state during AI speech
   const handleAIResponse = (audioBlob: Blob) => {
     const audio = new Audio(URL.createObjectURL(audioBlob));
-    setIsAISpeaking(true); // AI speaking: disable mic listening
+    setIsAISpeaking(true); 
     audio.play();
     audio.onended = () => {
-      setIsAISpeaking(false); // AI finished: enable mic listening
+      setIsAISpeaking(false);
     };
   };
 
@@ -119,7 +118,7 @@ const InterviewPage = () => {
 
   return (
     <Container maxWidth="md" sx={{ mt: 6, mb: 6 }}>
-      {demoMode && (
+      {demoMode && !currentQuestion && ( // <<< MODIFIED: Only show demo alert before start
         <Alert severity="info" sx={{ mb: 2 }}>
           You are in demo mode. Your progress will not be saved.
         </Alert>
@@ -148,11 +147,15 @@ const InterviewPage = () => {
 
       {currentQuestion && (
         <Paper elevation={8} sx={{ p: { xs: 2, md: 4 }, borderRadius: '15px', position: 'relative' }}>
-          <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 2 }}>
-            <Box sx={{ width: 120, height: 90, borderRadius: 2, boxShadow: 3, overflow: 'hidden', border: '2px solid white' }}>
-              <VideoProctor signalingUrl={"ws://localhost:8000/ws/proctor"} />
+          {/* <<< CHANGED: Logic to unmount webcam when interview is complete */}
+          { !interviewComplete && (
+            <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 2 }}>
+              {/* <<< CHANGED: Increased width and height for a larger view */}
+              <Box sx={{ width: 160, height: 120, borderRadius: 2, boxShadow: 3, overflow: 'hidden', border: '2px solid white' }}>
+                <VideoProctor signalingUrl={"ws://localhost:8000/ws/proctor"} />
+              </Box>
             </Box>
-          </Box>
+          )}
           
           <Typography variant="h4" sx={{ fontWeight: 'bold', textAlign: 'center', mb: 3 }}>
             Interview in Progress
@@ -171,7 +174,6 @@ const InterviewPage = () => {
               onTranscription={handleVoiceTranscription}
               onAIResponse={handleAIResponse}
               currentQuestion={currentQuestion}
-              // ✅ FIXED: Pass states to disable microphone during processing/speaking
               isProcessing={isProcessing}
               isAISpeaking={isAISpeaking}
               onAutoSend={() => {}}
@@ -194,7 +196,6 @@ const InterviewPage = () => {
             </Box>
           )}
 
-          {/* ✅ FIXED: Use dynamic total for progress bar */}
           {progress.length > 0 && !interviewComplete && (
             <Box sx={{ mt: 4 }}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
