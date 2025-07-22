@@ -45,7 +45,9 @@ const UploadPage = () => {
       console.log(result);
       setError('');
     } catch (err) {
+      console.log(err)
       setError('Failed to parse resume.');
+      ;
     } finally {
       setLoading(false);
     }
