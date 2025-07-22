@@ -4,11 +4,11 @@ import SmartToyIcon from '@mui/icons-material/SmartToy';
 import WorkIcon from '@mui/icons-material/Work';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 
+// <<< MODIFIED: Removed the 'Report' link from the navigation array
 const NAV_LINKS = [
   { label: 'Home', href: '/' },
   { label: 'Upload', href: '/upload' },
   { label: 'Interview', href: '/interview' },
-  { label: 'Report', href: '/report' },
 ];
 
 const IndexPage = () => {
@@ -78,17 +78,7 @@ const IndexPage = () => {
             >
               Demo Chat
             </Button>
-            <Button
-              component="a"
-              href="/report"
-              size="large"
-              variant="text"
-              color="secondary"
-              startIcon={<AssessmentIcon />}
-              sx={{ fontWeight: 700, width: { xs: '100%', sm: 'auto' }, minHeight: 52, fontSize: { xs: 18, md: 20 } }}
-            >
-              View Report
-            </Button>
+            {/* <<< REMOVED: The 'View Report' button was removed from this stack */}
           </Stack>
         </Paper>
       </Container>
