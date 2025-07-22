@@ -8,8 +8,8 @@ from .websocket import router as websocket_router
 
 # -- Database Imports --
 from sqlalchemy.ext.asyncio import create_async_engine
-from .db.models.models import Base
-from .db.queries.session import DATABASE_URL
+from db.models.models import Base
+from db.queries.session import DATABASE_URL
 
 
 # -- 1. Define the function to create tables --
