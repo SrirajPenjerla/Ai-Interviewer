@@ -17,7 +17,6 @@ services:
         sync: false
     autoDeploy: true
     healthCheckPath: /
-    postDeployCommand: python backend/db/migrations/create_tables.py
 
   - type: web
     name: ai-interviewer-frontend
