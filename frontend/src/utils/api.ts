@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = 'https://ai-interviewer-backend-wenv.onrender.com';
 
 export const uploadResume = async (file?: File, linkedinUrl?: string, name?: string, email?: string) => {
   const formData = new FormData();
