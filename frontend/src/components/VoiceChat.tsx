@@ -3,7 +3,7 @@ import { Box, Button, Typography, Paper, CircularProgress, Alert, LinearProgress
 import MicIcon from '@mui/icons-material/Mic';
 import MicOffIcon from '@mui/icons-material/MicOff';
 import VolumeUpIcon from '@mui/icons-material/VolumeUp';
-import PlayArrowIcon from '@mui/icons-material/PlayArrow'; // <<< ADDED
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import AnimatedAvatar from './AnimatedAvatar';
 
 // Add type declarations for speech recognition
@@ -39,12 +39,12 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
   const [isUserSpeaking, setIsUserSpeaking] = useState(false);
   const [isAISpeaking, setIsAISpeaking] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [hasStarted, setHasStarted] = useState(false); // <<< ADDED: To control the overall interview state
+  const [hasStarted, setHasStarted] = useState(false);
 
   const recognitionRef = useRef<any>(null);
   const synthesisRef = useRef<SpeechSynthesis | null>(null);
   const silenceIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const previousQuestionRef = useRef<string | undefined>(); // <<< ADDED: To prevent re-speaking the same question
+  const previousQuestionRef = useRef<string | undefined>();
 
   // This effect now correctly handles auto-sending on silence
   useEffect(() => {
@@ -64,7 +64,7 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
           console.log('Auto-sending after 5 seconds of silence');
           onTranscription(transcription);
           setTranscription('');
-          stopSilenceTimer(); // Stop the timer after sending
+          stopSilenceTimer();
         } else {
           const progress = Math.min((timeSinceLastSpeech / 5000) * 100, 100);
           setSilenceProgress(progress);
@@ -97,7 +97,7 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
       };
 
       recognitionRef.current.onresult = (event: any) => {
-        if (isAISpeaking) return; // <<< ADDED: Ignore results if AI is speaking
+        if (isAISpeaking) return;
 
         let finalTranscript = '';
         let interimTranscript = '';
@@ -115,7 +115,6 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
         const currentInterimTranscript = currentFinalTranscript + interimTranscript;
 
         if (interimTranscript || finalTranscript) {
-          // Stop any ongoing AI speech when user starts speaking
           if (synthesisRef.current && synthesisRef.current.speaking) {
             synthesisRef.current.cancel();
             setIsAISpeaking(false);
@@ -144,7 +143,6 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
         console.log('Speech recognition ended');
         setIsListening(false);
         setIsUserSpeaking(false);
-        // Don't auto-send here, let the silence timer handle it
       };
     } else {
       setError('Speech recognition not supported in this browser');
@@ -172,21 +170,12 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
     setSilenceProgress(0);
   };
 
-  const startListening = async () => {
+  const startListening = () => {
+    // <<< CHANGED: Added guard to prevent starting if already listening
     if (!recognitionRef.current || isListening) return;
-    try {
-      // Ensure microphone permission is granted before starting
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(track => track.stop()); // We only needed permission
-      
-      console.log('Starting listening...');
-      recognitionRef.current.start();
-      setIsListening(true);
-      setLastSpeechTime(Date.now());
-    } catch (error) {
-      console.error('Error accessing microphone:', error);
-      setError('Microphone access denied. Please allow microphone access and try again.');
-    }
+    
+    console.log('Attempting to start listening...');
+    recognitionRef.current.start();
   };
 
   const stopListening = () => {
@@ -194,16 +183,13 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
       console.log('Stopping listening...');
       recognitionRef.current.stop();
     }
-    setIsListening(false);
-    stopSilenceTimer();
   };
   
-  // <<< CHANGED: Function to speak text, now with a callback for when speech ends
-  const speakText = (text: string, onEndCallback?: () => void) => {
+  // <<< CHANGED: Simplified function. It no longer needs a callback.
+  const speakText = (text: string) => {
     if (synthesisRef.current && text) {
-      // Stop listening while AI speaks to prevent feedback loop
       stopListening(); 
-      synthesisRef.current.cancel(); // Cancel any previous speech
+      synthesisRef.current.cancel();
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.rate = 1.1;
@@ -214,31 +200,27 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
       if (preferredVoice) utterance.voice = preferredVoice;
 
       utterance.onstart = () => setIsAISpeaking(true);
-      
-      utterance.onend = () => {
-        setIsAISpeaking(false);
-        if (onEndCallback) {
-          onEndCallback(); // Execute the callback, e.g., to start listening again
-        }
-      };
-      
+      utterance.onend = () => setIsAISpeaking(false);
       utterance.onerror = () => setIsAISpeaking(false);
 
       synthesisRef.current.speak(utterance);
     }
   };
   
-  // <<< ADDED: Handler to start the entire interview process
-  const handleStartInterview = () => {
-    setHasStarted(true);
-    const firstQuestion = currentQuestion || "Please tell me about your experience with the technologies mentioned in your resume.";
-    // Speak the first question, and once done, start listening for the answer.
-    speakText(firstQuestion, () => {
-      startListening();
-    });
+  const handleStartInterview = async () => {
+    // <<< ADDED: Get microphone permission upfront before starting
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      stream.getTracks().forEach(track => track.stop());
+      setHasStarted(true);
+      const firstQuestion = currentQuestion || "Please tell me about your experience with the technologies mentioned in your resume.";
+      speakText(firstQuestion);
+    } catch (err) {
+      console.error("Microphone permission denied:", err);
+      setError("You must allow microphone access to start the interview.");
+    }
   };
 
-  // <<< ADDED: Handler to stop the interview
   const handleStopInterview = () => {
     stopListening();
     if (synthesisRef.current) {
@@ -248,27 +230,34 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
     setTranscription('');
   };
 
-  // <<< REWORKED: This effect now automatically speaks new questions during the interview
+  // <<< REWORKED: This effect speaks new questions
   useEffect(() => {
-    // Only speak if the interview has started, a new question is available, and the AI isn't already doing something.
     if (hasStarted && currentQuestion && currentQuestion !== previousQuestionRef.current && !isAISpeaking && !isProcessing) {
-      speakText(currentQuestion, () => {
-        startListening(); // Start listening for the user's answer after the question is asked
-      });
+      speakText(currentQuestion);
     }
-    // Update the ref to the current question
     previousQuestionRef.current = currentQuestion;
   }, [currentQuestion, hasStarted, isProcessing, isAISpeaking]);
 
+  // <<< ADDED: This new effect is dedicated to starting the mic.
+  // It waits for the AI to stop speaking, then activates the microphone.
+  useEffect(() => {
+    if (hasStarted && !isAISpeaking && !isUserSpeaking && !isProcessing) {
+      // Use a small timeout to give the browser a moment to release the audio channel
+      const timer = setTimeout(() => {
+        startListening();
+      }, 250); // 250ms delay
+      return () => clearTimeout(timer);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasStarted, isAISpeaking, isProcessing]);
 
   const handleSpeakQuestion = () => {
     if (currentQuestion) {
-      speakText(currentQuestion, () => {
-        startListening();
-      });
+      speakText(currentQuestion);
     }
   };
 
+  // ... rest of the JSX is the same
   return (
     <Paper elevation={2} sx={{ p: 3, mt: 2 }}>
       <Typography variant="h6" gutterBottom>
@@ -290,7 +279,6 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
         </Alert>
       )}
       
-      {/* <<< CHANGED: Dynamic button controls based on interview state */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, justifyContent: 'center' }}>
         {!hasStarted ? (
           <Button
@@ -361,7 +349,6 @@ const VoiceChat: React.FC<VoiceChatProps> = ({
         </Box>
       )}
       
-      {/* <<< CHANGED: More descriptive caption */}
       <Typography variant="caption" color="text.secondary" sx={{ mt: 2, display: 'block' }}>
         {hasStarted 
             ? isAISpeaking 
