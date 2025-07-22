@@ -42,6 +42,7 @@ const UploadPage = () => {
       setParsed(result);
       setSkills(result.skills || []);
       setCandidateId(result.candidate_id);
+      console.log(result);
       setError('');
     } catch (err) {
       setError('Failed to parse resume.');
