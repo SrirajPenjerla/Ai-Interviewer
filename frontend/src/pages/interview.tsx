@@ -3,26 +3,11 @@ import { Box, Container, Typography, Paper, CircularProgress, Alert, LinearProgr
 import { useRouter } from 'next/router';
 import { nextQuestion } from '../utils/api';
 import VoiceChat from '../components/VoiceChat';
-import AnimatedAvatar from '../components/AnimatedAvatar';
-import Link from 'next/link';
 import VideoProctor from '../components/VideoProctor';
-import { motion } from 'framer-motion';
+import Link from 'next/link';
 
-const InterviewPage = () => {
-  const router = useRouter();
-  const { interview, question } = router.query;
-  const [currentQuestion, setCurrentQuestion] = useState<string>('');
-  const [loading, setLoading] = useState(false);
-  const [progress, setProgress] = useState<string[]>([]);
-  const [scores, setScores] = useState<Array<Record<string, number>>>([]);
-  const [interviewComplete, setInterviewComplete] = useState(false);
-  const [isListening, setIsListening] = useState(false);
-  const [demoMode, setDemoMode] = useState(false);
-  const [isAISpeaking, setIsAISpeaking] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-
-  // Demo questions for when backend is not available
-  const demoQuestions = [
+// Demo questions defined outside the component for stability
+const demoQuestions = [
     "Tell me about yourself and your background in software development.",
     "Can you walk me through a complex algorithm you've implemented? What was the time complexity?",
     "Describe a challenging debugging scenario you encountered. What was the root cause?",
@@ -33,25 +18,39 @@ const InterviewPage = () => {
     "How do you ensure your code is maintainable and readable?",
     "What emerging technologies do you think will have the biggest impact in the next 5 years?",
     "Tell me about your experience with CI/CD pipelines and testing strategies."
-  ];
+];
+const TOTAL_DEMO_QUESTIONS = demoQuestions.length;
+
+const InterviewPage = () => {
+  const router = useRouter();
+  const { interview, question } = router.query;
+  const [currentQuestion, setCurrentQuestion] = useState<string>('');
+  const [progress, setProgress] = useState<string[]>([]);
+  const [scores, setScores] = useState<Array<Record<string, number>>>([]);
+  const [interviewComplete, setInterviewComplete] = useState(false);
+  const [demoMode, setDemoMode] = useState(false);
+
+  // Consolidated state for loading/processing
+  const [isProcessing, setIsProcessing] = useState(false);
+  // State to track if AI is speaking
+  const [isAISpeaking, setIsAISpeaking] = useState(false);
 
   useEffect(() => {
-    if (interview && router.isReady) {
-      if (question) {
+    if (router.isReady) {
+      if (interview && question) {
         setCurrentQuestion(question as string);
         setProgress([question as string]);
-      } else {
+      } else if (!interview) {
+        // Automatically enter demo mode if no interview ID is present
         setDemoMode(true);
-        setCurrentQuestion(demoQuestions[0]);
-        setProgress([demoQuestions[0]]);
+        // Do not set a question here; wait for the user to click "Start Demo"
       }
     }
-  }, [interview, router.isReady, question]);
+  }, [router.isReady, interview, question]);
 
   const handleVoiceTranscription = async (text: string) => {
     if (!text.trim()) return;
 
-    setLoading(true);
     setIsProcessing(true);
 
     try {
@@ -65,48 +64,45 @@ const InterviewPage = () => {
         } else {
           setInterviewComplete(true);
         }
-      } else {
+      } else { // Demo mode logic
         setDemoMode(true);
         const currentQuestionIndex = progress.length;
-        if (currentQuestionIndex < demoQuestions.length) {
-          const nextQuestion = demoQuestions[currentQuestionIndex];
-          setCurrentQuestion(nextQuestion);
-          setProgress([...progress, nextQuestion]);
+        if (currentQuestionIndex < TOTAL_DEMO_QUESTIONS) {
+          const nextDemoQuestion = demoQuestions[currentQuestionIndex];
+          setCurrentQuestion(nextDemoQuestion);
+          setProgress([...progress, nextDemoQuestion]);
 
-          // Simulate score
-          const simulatedScore = {
-            score: Math.floor(Math.random() * 3) + 6,
-            technical_depth: Math.floor(Math.random() * 3) + 6,
-            problem_solving: Math.floor(Math.random() * 3) + 6,
-            communication: Math.floor(Math.random() * 3) + 6,
-            experience: Math.floor(Math.random() * 3) + 6,
-            critical_thinking: Math.floor(Math.random() * 3) + 6
-          };
+          const simulatedScore = { score: Math.floor(Math.random() * 3) + 6 };
           setScores([...scores, simulatedScore]);
         } else {
           setInterviewComplete(true);
         }
       }
     } catch (err) {
-      console.error('Error in handleVoiceTranscription:', err);
+      console.error('Error handling transcription, falling back to demo mode:', err);
+      // Fallback logic in case of API error
       setDemoMode(true);
       const currentQuestionIndex = progress.length;
-      if (currentQuestionIndex < demoQuestions.length) {
-        const nextQuestion = demoQuestions[currentQuestionIndex];
-        setCurrentQuestion(nextQuestion);
-        setProgress([...progress, nextQuestion]);
+      if (currentQuestionIndex < TOTAL_DEMO_QUESTIONS) {
+        const nextDemoQuestion = demoQuestions[currentQuestionIndex];
+        setCurrentQuestion(nextDemoQuestion);
+        setProgress([...progress, nextDemoQuestion]);
       } else {
         setInterviewComplete(true);
       }
     } finally {
-      setLoading(false);
       setIsProcessing(false);
     }
   };
 
+  // ✅ FIXED: Control microphone state during AI speech
   const handleAIResponse = (audioBlob: Blob) => {
     const audio = new Audio(URL.createObjectURL(audioBlob));
+    setIsAISpeaking(true); // AI speaking: disable mic listening
     audio.play();
+    audio.onended = () => {
+      setIsAISpeaking(false); // AI finished: enable mic listening
+    };
   };
 
   const handleGoToReport = () => {
@@ -114,108 +110,76 @@ const InterviewPage = () => {
   };
 
   const startDemoInterview = () => {
+    setDemoMode(true);
     setCurrentQuestion(demoQuestions[0]);
     setProgress([demoQuestions[0]]);
+    setInterviewComplete(false);
+    setScores([]);
   };
 
   return (
-    <Container maxWidth="md" sx={{
-      mt: 6, mb: 6, background: 'linear-gradient(135deg, rgba(0,123,255,0.1), rgba(40,41,61,0.1))',
-      borderRadius: '10px', boxShadow: 3, position: 'relative'
-    }}>
+    <Container maxWidth="md" sx={{ mt: 6, mb: 6 }}>
       {demoMode && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Running in demo mode. Backend server may not be available.
+          You are in demo mode. Your progress will not be saved.
         </Alert>
       )}
 
-      {!currentQuestion && !interview && (
-        <Box sx={{ textAlign: 'center', mb: 4 }}>
+      {!currentQuestion && (
+        <Paper sx={{ textAlign: 'center', p: 4, borderRadius: '10px' }}>
           <Typography variant="h5" gutterBottom sx={{ fontWeight: 'bold' }}>
-            Welcome to AI Interviewer
+            AI Interview Practice
           </Typography>
           <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-            Start with a resume upload or try a demo interview
+            Upload your resume for a tailored interview or start a general technical demo.
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center' }}>
             <Link href="/upload" passHref>
-              <Typography component="span" sx={{
-                bgcolor: 'primary.main', color: 'white', px: 3, py: 1.5, borderRadius: 1, cursor: 'pointer',
-                '&:hover': { bgcolor: 'primary.dark' }
-              }}>
+              <Typography component="span" sx={{ bgcolor: 'primary.main', color: 'white', px: 3, py: 1.5, borderRadius: 1, cursor: 'pointer', '&:hover': { bgcolor: 'primary.dark' }}}>
                 Upload Resume
               </Typography>
             </Link>
-            <Typography component="span" sx={{
-              bgcolor: 'secondary.main', color: 'white', px: 3, py: 1.5, borderRadius: 1, cursor: 'pointer',
-              '&:hover': { bgcolor: 'secondary.dark' }
-            }} onClick={startDemoInterview}>
+            <Typography component="span" onClick={startDemoInterview} sx={{ bgcolor: 'secondary.main', color: 'white', px: 3, py: 1.5, borderRadius: 1, cursor: 'pointer', '&:hover': { bgcolor: 'secondary.dark' }}}>
               Start Demo Interview
             </Typography>
           </Box>
-        </Box>
+        </Paper>
       )}
 
       {currentQuestion && (
-        <Paper elevation={8} sx={{
-          p: { xs: 2, md: 6 }, borderRadius: '15px', bgcolor: 'rgba(255,255,255,0.98)', maxWidth: 800, mx: 'auto',
-          boxShadow: 12, position: 'relative', overflow: 'hidden',
-          minHeight: { xs: 0, md: 500 },
-        }}>
-          <Typography variant="h4" sx={{ fontWeight: 'bold', textAlign: 'center', mb: 3, letterSpacing: 1, fontSize: { xs: 24, md: 32 } }}>
-            Interview
-          </Typography>
-          {/* Webcam: Responsive placement */}
-          <Box
-            sx={{
-              display: { xs: 'flex', md: 'block' },
-              justifyContent: { xs: 'center', md: 'flex-end' },
-              alignItems: { xs: 'center', md: 'flex-start' },
-              position: { xs: 'static', md: 'absolute' },
-              top: { md: 24 },
-              right: { md: 24 },
-              width: { xs: '100%', md: 140 },
-              mb: { xs: 2, md: 0 },
-              zIndex: 2,
-            }}
-          >
-            <Box
-              sx={{
-                width: { xs: 120, md: 120 },
-                height: { xs: 90, md: 90 },
-                borderRadius: 2,
-                boxShadow: 3,
-                border: '3px solid white',
-                backgroundColor: 'black',
-                overflow: 'hidden',
-              }}
-            >
+        <Paper elevation={8} sx={{ p: { xs: 2, md: 4 }, borderRadius: '15px', position: 'relative' }}>
+          <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 2 }}>
+            <Box sx={{ width: 120, height: 90, borderRadius: 2, boxShadow: 3, overflow: 'hidden', border: '2px solid white' }}>
               <VideoProctor signalingUrl={"ws://localhost:8000/ws/proctor"} />
             </Box>
           </Box>
-          <Paper elevation={1} sx={{
-            p: 3, mb: 3, bgcolor: '#f5f5f5', borderRadius: 3, maxWidth: 600, mx: 'auto', boxShadow: 3,
-            fontSize: { xs: 16, md: 20 },
-          }}>
-            <Typography variant="h6" gutterBottom sx={{ fontSize: { xs: 18, md: 24 } }}>
-              Current Question
-            </Typography>
-            <Typography variant="body1" sx={{ fontStyle: 'italic', fontSize: { xs: 15, md: 18 } }}>
+          
+          <Typography variant="h4" sx={{ fontWeight: 'bold', textAlign: 'center', mb: 3 }}>
+            Interview in Progress
+          </Typography>
+
+          <Paper elevation={1} sx={{ p: 2, mb: 3, bgcolor: '#f5f5f5', borderRadius: 2 }}>
+            <Typography variant="h6" gutterBottom>Current Question:</Typography>
+            <Typography variant="body1" sx={{ fontStyle: 'italic' }}>
               {`"${currentQuestion}"`}
             </Typography>
           </Paper>
+
           <Box sx={{ maxWidth: 500, mx: 'auto', width: '100%' }}>
             <VoiceChat
               interviewId={parseInt(interview as string) || 1}
               onTranscription={handleVoiceTranscription}
               onAIResponse={handleAIResponse}
               currentQuestion={currentQuestion}
+              // ✅ FIXED: Pass states to disable microphone during processing/speaking
+              isProcessing={isProcessing}
+              isAISpeaking={isAISpeaking}
               onAutoSend={() => {}}
             />
           </Box>
-
-          {loading && (
-            <Box sx={{ mt: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
+          
+          {isProcessing && (
+            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 2 }}>
               <CircularProgress size={24} />
               <Typography variant="body2" color="text.secondary">Processing your answer...</Typography>
             </Box>
@@ -223,27 +187,24 @@ const InterviewPage = () => {
 
           {interviewComplete && (
             <Box sx={{ mt: 4, textAlign: 'center' }}>
-              <Typography variant="h6" color="success.main" gutterBottom>
-                🎉 Interview Complete!
-              </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                Your interview has been completed. View your detailed report below.
-              </Typography>
-              <Typography component="span" sx={{
-                bgcolor: 'primary.main', color: 'white', px: 3, py: 1.5, borderRadius: 1, cursor: 'pointer',
-                '&:hover': { bgcolor: 'primary.dark' }
-              }} onClick={handleGoToReport}>
+              <Typography variant="h6" color="success.main" gutterBottom>🎉 Interview Complete!</Typography>
+              <Typography component="span" onClick={handleGoToReport} sx={{ bgcolor: 'primary.main', color: 'white', px: 3, py: 1.5, borderRadius: 1, cursor: 'pointer', '&:hover': { bgcolor: 'primary.dark' }}}>
                 View Report
               </Typography>
             </Box>
           )}
 
-          {progress.length > 1 && (
+          {/* ✅ FIXED: Use dynamic total for progress bar */}
+          {progress.length > 0 && !interviewComplete && (
             <Box sx={{ mt: 4 }}>
               <Typography variant="body2" color="text.secondary" gutterBottom>
-                Progress: {progress.length} of 10 questions answered
+                Progress: {progress.length} of {demoMode ? TOTAL_DEMO_QUESTIONS : '...'} questions
               </Typography>
-              <LinearProgress variant="determinate" value={(progress.length / 10) * 100} sx={{ height: 8, borderRadius: 4 }} />
+              <LinearProgress
+                variant="determinate"
+                value={demoMode ? (progress.length / TOTAL_DEMO_QUESTIONS) * 100 : (progress.length / 10) * 100} // Fallback for real interview
+                sx={{ height: 8, borderRadius: 4 }}
+              />
             </Box>
           )}
         </Paper>
